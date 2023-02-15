@@ -1,0 +1,53 @@
+version: "3"
+
+services:
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./docker_files/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./:/var/www/
+    ports:
+      - "80:80"
+    networks:
+      - web
+    depends_on:
+      - php
+
+  php:
+    build:
+      args:
+        user: vlad
+        uid: 1000
+      dockerfile: docker_files/php/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./:/var/www/
+      - ./docker_files/php/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+      - ./docker_files/php/conf.d/php.ini:/usr/local/etc/php.ini
+    networks:
+      - web
+
+  database:
+    image: mysql
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+      SERVICE_TAGS: dev
+    ports:
+        - "3306:3306"
+    volumes:
+      - database:/var/lib/mysql
+    networks:
+      - web
+
+
+networks:
+  web:
+    driver: bridge
+
+volumes:
+  database:
+    driver: local
