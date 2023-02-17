@@ -1,10 +1,9 @@
-FROM php:8.2-fpm-alpine
+FROM php:7.1-fpm-alpine
 
 ARG user
 ARG uid
 
 RUN apk add --update --no-cache icu-libs \
-        doas \
         libintl \
         build-base \
         zlib-dev \
@@ -52,7 +51,8 @@ RUN apk add --update --no-cache icu-libs \
         su-exec \
         wget \
         nodejs \
-        npm
+        npm  \
+        doas
 
 RUN docker-php-ext-install exif \
         mysqli \
@@ -72,12 +72,12 @@ RUN docker-php-ext-install exif \
 
 RUN adduser -u $uid $user; \
     echo $user:bktl57m | chpasswd; \
-    echo permit $user as root > /etc/doas.d/doas.conf
+    echo permit persist :$user > /etc/doas.conf
 
-RUN pecl install xdebug \
+RUN pecl install xdebug-2.9.8 \
     && docker-php-ext-enable xdebug
 
-# Clean
+# Clean cache
 RUN rm -rf /var/cache/apk/* && docker-php-source delete
 
 RUN curl -sS https://getcomposer.org/installer | php
@@ -86,6 +86,15 @@ RUN mv composer.phar /usr/local/bin/composer
 RUN mkdir -p /home/$user/.composer && \
     chown -R $user:$user /home/$user
 
+COPY docker_files/php/conf.d/php.ini /usr/local/etc/php/php.ini
+COPY docker_files/php/conf.d/xdebug.ini /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+
+RUN mkdir /etc/supervisor
+COPY docker_files/supervisor/supervisor.conf /etc/supervisor/supervisor.conf
+COPY docker_files/supervisor/conf.d /etc/supervisor/conf.d
+
 WORKDIR /var/www/
+
+CMD ["/usr/bin/supervisord","-c","/etc/supervisor/supervisor.conf"]
 
 USER $user
